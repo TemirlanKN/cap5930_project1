@@ -2,12 +2,12 @@ from datetime import datetime
 
 from flask import Flask, render_template, request, redirect, url_for, send_file, send_from_directory
 from werkzeug.utils import secure_filename
-
+from google.cloud import speech
+from google.cloud import texttospeech_v1 as texttospeech
 import os
 
 app = Flask(__name__)
 
-# Configure upload folder
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'wav'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -32,6 +32,30 @@ def index():
     files = get_files()
     return render_template('index.html', files=files)
 
+client = speech.SpeechClient()
+
+def sample_recognize(file_path):
+    with open(file_path, 'rb') as audio_file:
+        content = audio_file.read()
+
+    audio = speech.RecognitionAudio(content=content)
+    config = speech.RecognitionConfig(
+        language_code="en-US",
+        model="latest_long",
+        # audio_channel_count=2,
+        enable_word_confidence=True,
+        enable_word_time_offsets=True,
+    )
+
+    operation = client.long_running_recognize(config=config, audio=audio)
+    response = operation.result(timeout=90)
+
+    transcript = ''
+    for result in response.results:
+        transcript += result.alternatives[0].transcript + '\n'
+    
+    return transcript
+
 @app.route('/upload', methods=['POST'])
 def upload_audio():
     if 'audio_data' not in request.files:
@@ -43,13 +67,18 @@ def upload_audio():
         return redirect(request.url)
     if file:
         # filename = secure_filename(file.filename)
-        filename = datetime.now().strftime("%Y%m%d-%I%M%S%p") + '.wav'
+        filename = datetime.now().strftime("%Y%m%d-%I%M%S%p") + '_stt.wav'
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
 
         #
         #
         # Modify this block to call the speech to text API
+        transcript = sample_recognize(file_path)
+        transcript_filename = os.path.splitext(filename)[0] + '.txt'
+        transcript_path = os.path.join(app.config['UPLOAD_FOLDER'], transcript_filename)
+        with open(transcript_path, 'w') as f:
+            f.write(transcript)
         # Save transcript to same filename but .txt
         #
         #
@@ -60,15 +89,46 @@ def upload_audio():
 def get_file(filename):
     return send_file(filename)
 
+tts_client = texttospeech.TextToSpeechClient()
+
+def sample_synthesize_speech(text=None):
+    input = texttospeech.SynthesisInput(text=text)
+
+    voice = texttospeech.VoiceSelectionParams(
+        language_code="en-US",
+        name="en-US-Wavenet-D"
+    )
+
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.LINEAR16 
+    )
+
+    response = tts_client.synthesize_speech(
+        input=input, voice=voice, audio_config=audio_config
+    )
+    return response.audio_content
     
 @app.route('/upload_text', methods=['POST'])
 def upload_text():
     text = request.form['text']
-    print(text)
+    print("upload text",text)
     #
     #
     # Modify this block to call the stext to speech API
     # Save the output as a audio file in the 'tts' directory 
+    synthesized_speech = sample_synthesize_speech(text=text)
+
+    # Save the synthesized speech to a .wav file
+    filename = datetime.now().strftime("%Y%m%d-%I%M%S%p") + '_tts.wav'
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    with open(file_path, 'wb') as f:
+        f.write(synthesized_speech)
+
+    # Save the input text to a .txt file
+    transcript_filename = os.path.splitext(filename)[0] + '.txt'
+    transcript_path = os.path.join(app.config['UPLOAD_FOLDER'], transcript_filename)
+    with open(transcript_path, 'w') as f:
+        f.write(text)
     # Display the audio files at the bottom and allow the user to listen to them
     #
 

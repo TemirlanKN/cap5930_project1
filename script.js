@@ -8,11 +8,20 @@ const timerDisplay = document.getElementById('timer');
 let mediaRecorder;
 let audioChunks = [];
 let startTime;
+let timerInterval;  // Declare timerInterval globally so that we can clear it when the recording stops
 
 function formatTime(time) {
   const minutes = Math.floor(time / 60);
   const seconds = Math.floor(time % 60);
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function showSection(sectionId) {
+    const sections = document.querySelectorAll('.section');
+    sections.forEach(section => section.classList.remove('active'));
+
+    const selectedSection = document.getElementById(sectionId);
+    selectedSection.classList.add('active');
 }
 
 recordButton.addEventListener('click', () => {
@@ -21,8 +30,11 @@ recordButton.addEventListener('click', () => {
       mediaRecorder = new MediaRecorder(stream);
       mediaRecorder.start();
 
+      // Reset audio chunks for a new recording session
+      audioChunks = [];
+
       startTime = Date.now();
-      let timerInterval = setInterval(() => {
+      timerInterval = setInterval(() => {
         const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
         timerDisplay.textContent = formatTime(elapsedTime);
       }, 1000);
@@ -32,6 +44,13 @@ recordButton.addEventListener('click', () => {
       };
 
       mediaRecorder.onstop = () => {
+        // Stop the timer
+        clearInterval(timerInterval);
+
+        // Reset the timer display
+        timerDisplay.textContent = '00:00';
+
+        // Create the audio blob and upload it
         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
         const formData = new FormData();
         formData.append('audio_data', audioBlob, 'recorded_audio.wav');
@@ -50,28 +69,29 @@ recordButton.addEventListener('click', () => {
         })
         .then(data => {
             console.log('Audio uploaded successfully:', data);
-            // Redirect to playback page or display success message
         })
         .catch(error => {
             console.error('Error uploading audio:', error);
         });
       };
+
+      // Disable record button and enable stop button
+      recordButton.disabled = true;
+      stopButton.disabled = false;
     })
     .catch(error => {
       console.error('Error accessing microphone:', error);
     });
-
-  recordButton.disabled = true;
-  stopButton.disabled = false;
 });
 
 stopButton.addEventListener('click', () => {
-  if (mediaRecorder) {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
     mediaRecorder.stop();
-  }
 
-  recordButton.disabled = false;
-  stopButton.disabled = true;
+    // Re-enable record button and disable stop button
+    recordButton.disabled = false;
+    stopButton.disabled = true;
+  }
 });
 
 // Initially disable the stop button

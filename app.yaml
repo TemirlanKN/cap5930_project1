@@ -1,0 +1,13 @@
+runtime: python39  # You can also use python38 if you're using Python 3.8
+
+entrypoint: gunicorn -b :$PORT app:app  # Tell GAE how to run your Flask app
+
+handlers:
+- url: /static
+  static_dir: static
+
+- url: /.*
+  script: auto
+
+env_variables:
+  GOOGLE_APPLICATION_CREDENTIALS: "C:/Users/temir/cap5930-project-1-da121717363a.json"
