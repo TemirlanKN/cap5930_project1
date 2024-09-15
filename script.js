@@ -8,7 +8,7 @@ const timerDisplay = document.getElementById('timer');
 let mediaRecorder;
 let audioChunks = [];
 let startTime;
-let timerInterval;  // Declare timerInterval globally so that we can clear it when the recording stops
+let timerInterval;
 
 function formatTime(time) {
   const minutes = Math.floor(time / 60);
@@ -24,13 +24,46 @@ function showSection(sectionId) {
     selectedSection.classList.add('active');
 }
 
+document.getElementById('generateAudioButton').addEventListener('click', function () {
+    var text = document.getElementById('textInput').value;
+    
+    if (text.trim() === "") {
+        alert("Please enter some text.");
+        return;
+    }
+
+    // Perform AJAX request
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload_text', true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+            // On success, update the list of synthesized files
+            var audioList = document.getElementById('synthesizedAudioList');
+            var response = JSON.parse(xhr.responseText); // expecting a JSON response with the new file
+            var newListItem = document.createElement('li');
+            newListItem.innerHTML = `
+                <audio controls>
+                    <source src="/uploads/${response.file}">
+                    Your browser does not support the audio element.
+                </audio>
+                <br>${response.file}
+                <a href="/uploads/${response.transcript}">Transcript: ${response.transcript}</a>
+            `;
+            audioList.appendChild(newListItem);
+        }
+    };
+    
+    var params = "text=" + encodeURIComponent(text);
+    xhr.send(params);
+});
+
 recordButton.addEventListener('click', () => {
   navigator.mediaDevices.getUserMedia({ audio: true })
     .then(stream => {
       mediaRecorder = new MediaRecorder(stream);
       mediaRecorder.start();
 
-      // Reset audio chunks for a new recording session
       audioChunks = [];
 
       startTime = Date.now();
@@ -44,13 +77,10 @@ recordButton.addEventListener('click', () => {
       };
 
       mediaRecorder.onstop = () => {
-        // Stop the timer
         clearInterval(timerInterval);
 
-        // Reset the timer display
         timerDisplay.textContent = '00:00';
 
-        // Create the audio blob and upload it
         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
         const formData = new FormData();
         formData.append('audio_data', audioBlob, 'recorded_audio.wav');
@@ -75,7 +105,6 @@ recordButton.addEventListener('click', () => {
         });
       };
 
-      // Disable record button and enable stop button
       recordButton.disabled = true;
       stopButton.disabled = false;
     })
@@ -88,11 +117,9 @@ stopButton.addEventListener('click', () => {
   if (mediaRecorder && mediaRecorder.state === 'recording') {
     mediaRecorder.stop();
 
-    // Re-enable record button and disable stop button
     recordButton.disabled = false;
     stopButton.disabled = true;
   }
 });
 
-// Initially disable the stop button
 stopButton.disabled = true;

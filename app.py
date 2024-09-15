@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 from google.cloud import speech
 from google.cloud import texttospeech_v1 as texttospeech
 import os
-
+from flask import jsonify
 app = Flask(__name__)
 
 UPLOAD_FOLDER = 'uploads'
@@ -66,22 +66,15 @@ def upload_audio():
         flash('No selected file')
         return redirect(request.url)
     if file:
-        # filename = secure_filename(file.filename)
         filename = datetime.now().strftime("%Y%m%d-%I%M%S%p") + '_stt.wav'
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
 
-        #
-        #
-        # Modify this block to call the speech to text API
         transcript = sample_recognize(file_path)
         transcript_filename = os.path.splitext(filename)[0] + '.txt'
         transcript_path = os.path.join(app.config['UPLOAD_FOLDER'], transcript_filename)
         with open(transcript_path, 'w') as f:
             f.write(transcript)
-        # Save transcript to same filename but .txt
-        #
-        #
 
     return redirect('/') #success
 
@@ -111,28 +104,22 @@ def sample_synthesize_speech(text=None):
 @app.route('/upload_text', methods=['POST'])
 def upload_text():
     text = request.form['text']
-    print("upload text",text)
-    #
-    #
-    # Modify this block to call the stext to speech API
-    # Save the output as a audio file in the 'tts' directory 
+    print("upload text", text)
+    
     synthesized_speech = sample_synthesize_speech(text=text)
 
-    # Save the synthesized speech to a .wav file
     filename = datetime.now().strftime("%Y%m%d-%I%M%S%p") + '_tts.wav'
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     with open(file_path, 'wb') as f:
         f.write(synthesized_speech)
 
-    # Save the input text to a .txt file
     transcript_filename = os.path.splitext(filename)[0] + '.txt'
     transcript_path = os.path.join(app.config['UPLOAD_FOLDER'], transcript_filename)
     with open(transcript_path, 'w') as f:
         f.write(text)
-    # Display the audio files at the bottom and allow the user to listen to them
-    #
-
-    return redirect('/') #success
+    
+    # Return JSON response with the new file and transcript
+    return jsonify({'file': filename, 'transcript': transcript_filename})
 
 @app.route('/script.js',methods=['GET'])
 def scripts_js():

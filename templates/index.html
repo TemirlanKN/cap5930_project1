@@ -182,14 +182,14 @@
         <!-- Text to Speech -->
         <div id="textSection" class="section">
             <h2>Type Text to Generate Audio</h2>
-            <form action="{{ url_for('upload_text') }}" method="POST">
-                <textarea name="text" rows="10" placeholder="Enter text here..."></textarea>
+            <form id="textToSpeechForm">
+                <textarea name="text" id="textInput" rows="10" placeholder="Enter text here..."></textarea>
                 <br>
-                <input type="submit" value="Generate Audio">
+                <input type="button" value="Generate Audio" id="generateAudioButton">
             </form>
-            
+        
             <h2>Synthesized Audio Files</h2>
-            <ul>
+            <ul id="synthesizedAudioList">
                 {% for file in files %}
                 {% if file.endswith('tts.wav') %}
                 <li>
@@ -199,7 +199,7 @@
                     </audio>
                     <br>
                     {{ file }}
-            
+        
                     <a href="{{ url_for('uploaded_file', filename=file.replace('.wav', '.txt')) }}">
                         Transcript: {{ file.replace('.wav', '.txt') }}
                     </a>
