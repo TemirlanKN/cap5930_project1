@@ -25,37 +25,35 @@ function showSection(sectionId) {
 }
 
 document.getElementById('generateAudioButton').addEventListener('click', function () {
-    var text = document.getElementById('textInput').value;
-    
-    if (text.trim() === "") {
-        alert("Please enter some text.");
-        return;
-    }
+  var text = document.getElementById('textInput').value;
+  
+  if (text.trim() === "") {
+      alert("Please enter some text.");
+      return;
+  }
 
-    // Perform AJAX request
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/upload_text', true);
-    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState == 4 && xhr.status == 200) {
-            // On success, update the list of synthesized files
-            var audioList = document.getElementById('synthesizedAudioList');
-            var response = JSON.parse(xhr.responseText); // expecting a JSON response with the new file
-            var newListItem = document.createElement('li');
-            newListItem.innerHTML = `
-                <audio controls>
-                    <source src="/uploads/${response.file}">
-                    Your browser does not support the audio element.
-                </audio>
-                <br>${response.file}
-                <a href="/uploads/${response.transcript}">Transcript: ${response.transcript}</a>
-            `;
-            audioList.appendChild(newListItem);
-        }
-    };
-    
-    var params = "text=" + encodeURIComponent(text);
-    xhr.send(params);
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/upload_text', true);
+  xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+  xhr.onreadystatechange = function () {
+      if (xhr.readyState == 4 && xhr.status == 200) {
+          var audioList = document.getElementById('synthesizedAudioList');
+          var response = JSON.parse(xhr.responseText);
+          var newListItem = document.createElement('li');
+          newListItem.innerHTML = `
+              <audio controls>
+                  <source src="/uploads/${response.file}">
+                  Your browser does not support the audio element.
+              </audio>
+              <br>${response.file}
+              <a href="/uploads/${response.transcript}">Transcript: ${response.transcript}</a>
+          `;
+          audioList.appendChild(newListItem);
+      }
+  };
+  
+  var params = "text=" + encodeURIComponent(text);
+  xhr.send(params);
 });
 
 recordButton.addEventListener('click', () => {
@@ -93,7 +91,7 @@ recordButton.addEventListener('click', () => {
             if (!response.ok) {
                 throw new Error('Network response was not ok');
             }
-            location.reload(); // Force refresh
+            location.reload();
 
             return response.text();
         })

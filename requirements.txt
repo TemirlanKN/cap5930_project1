@@ -1,6 +1,7 @@
-Flask
+Flask==3.0.3
 google-cloud-speech
 google-cloud-texttospeech
 google-cloud-storage
+google-cloud-secret-manager
 gunicorn
 Werkzeug
