@@ -160,7 +160,7 @@
             </form>
 
             <h2>Recorded Files</h2>
-            <ul>
+            <ul id="recordedFiles">
                 {% for file in files %}
                 {% if file.endswith('stt.wav') %}
                 <li>
@@ -173,6 +173,7 @@
                     <a href="{{ url_for('uploaded_file', filename=file.replace('.wav', '.txt')) }}">
                         Transcript: {{ file.replace('.wav', '.txt') }}
                     </a>
+                    <p>Sentiment AnalysiS:{{ sentiment_dict[file] | safe }}</p>
                     {% endif %}
                 </li>
                 {% endfor %}
@@ -203,6 +204,7 @@
                     <a href="{{ url_for('uploaded_file', filename=file.replace('.wav', '.txt')) }}">
                         Transcript: {{ file.replace('.wav', '.txt') }}
                     </a>
+                    <p>Sentiment AnalysiS:{{ sentiment_dict[file] | safe }}</p>
                 </li>
                 {% endif %}
                 {% endfor %}

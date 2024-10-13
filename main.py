@@ -4,6 +4,7 @@ from flask import Flask, render_template, request, redirect, url_for, send_file,
 from werkzeug.utils import secure_filename
 from google.cloud import speech
 from google.cloud import texttospeech_v1 as texttospeech
+from google.cloud import language_v2 as language
 import os
 import json
 from google.cloud import secretmanager
@@ -29,6 +30,32 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def analyze_sentiment(text, filename, language_code="en"):
+    language_client = language.LanguageServiceClient()
+    
+    document = {
+        "content": text,
+        "type_": language.Document.Type.PLAIN_TEXT,
+        "language_code": "en"  
+    }
+    
+    response = language_client.analyze_sentiment(document=document)
+    sentiment = response.document_sentiment
+
+    sentiment_score = 'Positive' if sentiment.score > 0.5 else 'Negative' if sentiment.score < -0.5 else 'Neutral'
+
+    sentiment_filename = filename.replace('.wav', '_sentiment.txt')
+    sentiment_path = os.path.join(app.config['UPLOAD_FOLDER'], sentiment_filename)
+    print(f"Saving sentiment analysis to: {sentiment_path}")
+    
+    with open(sentiment_path, 'w') as f:
+        f.write(f"{sentiment_score}\n")
+        # f.write(f"Sentiment Score: {sentiment.score}\n")
+        # f.write(f"Sentiment Magnitude: {sentiment.magnitude}\n")
+    
+    return sentiment_filename
+
+
 def get_files():
     files = []
     for filename in os.listdir(UPLOAD_FOLDER):
@@ -41,7 +68,21 @@ def get_files():
 @app.route('/')
 def index():
     files = get_files()
-    return render_template('index.html', files=files)
+    sentiment_dict = {}
+    for filename in files:
+        if filename.endswith('stt.wav') or filename.endswith('tts.wav'):
+            sentiment_filename = filename.replace('.wav', '_sentiment.txt')
+            sentiment_path = os.path.join(app.config['UPLOAD_FOLDER'], sentiment_filename)
+            if os.path.exists(sentiment_path):
+                with open(sentiment_path, 'r') as f:
+                    sentiment_dict[filename] = f.read()
+            else:
+                print(f"Sentiment file not found for: {filename}")
+                sentiment_dict[filename] = "No sentiment analysis available."
+    return render_template('index.html', files=files, sentiment_dict=sentiment_dict)
+
+
+
 
 client = speech.SpeechClient()
 
@@ -92,8 +133,17 @@ def upload_audio():
         print(f"Saving transcript file to: {transcript_path}")
         with open(transcript_path, 'w') as f:
             f.write(transcript)
+            
+        sentiment_filename = analyze_sentiment(transcript, filename)
+        
+        with open(os.path.join(app.config['UPLOAD_FOLDER'], sentiment_filename), 'r') as f:
+            sentiment_content = f.read()
 
-    return redirect('/') #success
+        return jsonify({
+            'file': filename,
+            'transcript': transcript_filename,
+            'sentiment_content': sentiment_content
+        })
 
 @app.route('/upload/<filename>')
 def get_file(filename):
@@ -122,7 +172,7 @@ def sample_synthesize_speech(text=None):
 def upload_text():
     text = request.form['text']
     print("upload text",text)
-     
+    
     synthesized_speech = sample_synthesize_speech(text=text)
 
     filename = datetime.now().strftime("%Y%m%d-%I%M%S%p") + '_tts.wav'
@@ -134,8 +184,17 @@ def upload_text():
     transcript_path = os.path.join(app.config['UPLOAD_FOLDER'], transcript_filename)
     with open(transcript_path, 'w') as f:
         f.write(text)
+        
+    sentiment_filename = analyze_sentiment(text, filename)
 
-    return jsonify({'file': filename, 'transcript': transcript_filename})
+    with open(os.path.join(app.config['UPLOAD_FOLDER'], sentiment_filename), 'r') as f:
+        sentiment_content = f.read()
+
+    return jsonify({
+        'file': filename,
+        'transcript': transcript_filename,
+        'sentiment_content': sentiment_content
+    })
 
 @app.route('/script.js',methods=['GET'])
 def scripts_js():

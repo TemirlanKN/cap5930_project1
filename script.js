@@ -17,29 +17,29 @@ function formatTime(time) {
 }
 
 function showSection(sectionId) {
-    const sections = document.querySelectorAll('.section');
-    sections.forEach(section => section.classList.remove('active'));
+  const sections = document.querySelectorAll('.section');
+  sections.forEach(section => section.classList.remove('active'));
 
-    const selectedSection = document.getElementById(sectionId);
-    selectedSection.classList.add('active');
+  const selectedSection = document.getElementById(sectionId);
+  selectedSection.classList.add('active');
 }
 
 document.getElementById('generateAudioButton').addEventListener('click', function () {
-  var text = document.getElementById('textInput').value;
-  
+  const text = document.getElementById('textInput').value;
+
   if (text.trim() === "") {
       alert("Please enter some text.");
       return;
   }
 
-  var xhr = new XMLHttpRequest();
+  const xhr = new XMLHttpRequest();
   xhr.open('POST', '/upload_text', true);
   xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
   xhr.onreadystatechange = function () {
-      if (xhr.readyState == 4 && xhr.status == 200) {
-          var audioList = document.getElementById('synthesizedAudioList');
-          var response = JSON.parse(xhr.responseText);
-          var newListItem = document.createElement('li');
+      if (xhr.readyState === 4 && xhr.status === 200) {
+          const audioList = document.getElementById('synthesizedAudioList');
+          const response = JSON.parse(xhr.responseText);
+          const newListItem = document.createElement('li');
           newListItem.innerHTML = `
               <audio controls>
                   <source src="/uploads/${response.file}">
@@ -47,76 +47,86 @@ document.getElementById('generateAudioButton').addEventListener('click', functio
               </audio>
               <br>${response.file}
               <a href="/uploads/${response.transcript}">Transcript: ${response.transcript}</a>
+              <br>
+              <p>Sentiment Analysis:${response.sentiment_content}</p>
           `;
           audioList.appendChild(newListItem);
       }
   };
-  
-  var params = "text=" + encodeURIComponent(text);
+
+  const params = "text=" + encodeURIComponent(text);
   xhr.send(params);
 });
 
 recordButton.addEventListener('click', () => {
   navigator.mediaDevices.getUserMedia({ audio: true })
-    .then(stream => {
-      mediaRecorder = new MediaRecorder(stream);
-      mediaRecorder.start();
+      .then(stream => {
+          mediaRecorder = new MediaRecorder(stream);
+          mediaRecorder.start();
 
-      audioChunks = [];
+          audioChunks = [];
 
-      startTime = Date.now();
-      timerInterval = setInterval(() => {
-        const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
-        timerDisplay.textContent = formatTime(elapsedTime);
-      }, 1000);
+          startTime = Date.now();
+          timerInterval = setInterval(() => {
+              const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+              timerDisplay.textContent = formatTime(elapsedTime);
+          }, 1000);
 
-      mediaRecorder.ondataavailable = e => {
-        audioChunks.push(e.data);
-      };
+          mediaRecorder.ondataavailable = e => {
+              audioChunks.push(e.data);
+          };
 
-      mediaRecorder.onstop = () => {
-        clearInterval(timerInterval);
+          mediaRecorder.onstop = () => {
+              clearInterval(timerInterval);
+              timerDisplay.textContent = '00:00';
 
-        timerDisplay.textContent = '00:00';
+              const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+              const formData = new FormData();
+              formData.append('audio_data', audioBlob, 'recorded_audio.wav');
 
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-        const formData = new FormData();
-        formData.append('audio_data', audioBlob, 'recorded_audio.wav');
+              fetch('/upload', {
+                  method: 'POST',
+                  body: formData
+              })
+              .then(response => {
+                  if (!response.ok) {
+                      throw new Error('Network response was not ok');
+                  }
+                  return response.json();
+              })
+              .then(data => {
+                  const audioList = document.getElementById('recordedFiles');
+                  const newListItem = document.createElement('li');
+                  newListItem.innerHTML = `
+                      <audio controls>
+                          <source src="/uploads/${data.file}">
+                          Your browser does not support the audio element.
+                      </audio>
+                      <br>${data.file}
+                      <a href="/uploads/${data.transcript}">Transcript: ${data.transcript}</a>
+                      <br>
+                      <p>Sentiment Analysis:${data.sentiment_content}</p>
+                  `;
+                  audioList.appendChild(newListItem);
+              })
+              .catch(error => {
+                  console.error('Error uploading audio:', error);
+              });
+          };
 
-        fetch('/upload', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            location.reload();
-
-            return response.text();
-        })
-        .then(data => {
-            console.log('Audio uploaded successfully:', data);
-        })
-        .catch(error => {
-            console.error('Error uploading audio:', error);
-        });
-      };
-
-      recordButton.disabled = true;
-      stopButton.disabled = false;
-    })
-    .catch(error => {
-      console.error('Error accessing microphone:', error);
-    });
+          recordButton.disabled = true;
+          stopButton.disabled = false;
+      })
+      .catch(error => {
+          console.error('Error accessing microphone:', error);
+      });
 });
 
 stopButton.addEventListener('click', () => {
   if (mediaRecorder && mediaRecorder.state === 'recording') {
-    mediaRecorder.stop();
-
-    recordButton.disabled = false;
-    stopButton.disabled = true;
+      mediaRecorder.stop();
+      recordButton.disabled = false;
+      stopButton.disabled = true;
   }
 });
 
